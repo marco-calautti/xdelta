@@ -4,6 +4,8 @@ project(xdelta3 VERSION 3.0.11)
 include(CheckTypeSize)
 check_type_size(size_t XD3_SIZEOF_SIZE_T)
 
+include_directories(.)
+
 set(XD3_SOURCES xdelta3/xdelta3.c)
 
 set(XD3_TARGET_LIBS "")
