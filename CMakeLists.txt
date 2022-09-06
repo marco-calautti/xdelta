@@ -83,16 +83,9 @@ if(XD3_BUILD_AS_EXE)
     add_executable(${PROJECT_NAME} "${XD3_SOURCES}")
 else()
     add_library(${PROJECT_NAME} "${XD3_SOURCES}")
+    target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
-        # where the library itself will look for its internal headers
-        ${CMAKE_CURRENT_SOURCE_DIR}/xdelta3
-    PUBLIC
-        # where top-level project will look for the library's public headers
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/>
-)
 
 target_link_libraries(xdelta3 ${XD3_TARGET_LIBS})
 
