@@ -4,7 +4,8 @@ project(xdelta3 VERSION 3.0.11)
 include(CheckTypeSize)
 check_type_size(size_t XD3_SIZEOF_SIZE_T)
 
-set(XD3_SOURCE_DIR xdelta3)
+set(XD3_SOURCES xdelta3/xdelta3.c)
+
 set(XD3_TARGET_LIBS "")
 
 option( XD3_BUILD_AS_EXE 
@@ -33,7 +34,7 @@ option( XD3_ENABLE_VCDIFF_TOOLS
 add_compile_definitions(SIZEOF_SIZE_T=${XD3_SIZEOF_SIZE_T})
 add_compile_definitions(XD3_USE_LARGEFILE64=1)
 add_compile_definitions(XD3_MAIN=1) #enables main function
-
+add_compile_definitions(EXTERNAL_COMPRESSION=0)
 if(WIN32)
     add_compile_definitions(XD3_WIN32=1) #this forces using the win32 io library
     add_compile_definitions(WIN32=1)
@@ -49,6 +50,7 @@ if(XD3_BUILD_AS_EXE)
     add_compile_definitions(NOT_MAIN=0)
 else()
     add_compile_definitions(NOT_MAIN=1) # changes the main function name to xd3_main_cmdline
+    set(XD3_SOURCES xdelta3_wrapper.cpp ${XD3_SOURCES})
 endif()
 
 if(XD3_ENABLE_ENCODER)
@@ -64,7 +66,6 @@ else()
 endif()
 
 if(XD3_ENABLE_SECONDARY_COMPRESSION)
-    add_compile_definitions(EXTERNAL_COMPRESSION=1)
     add_compile_definitions(SECONDARY_DJW=1) #(passing djwn chooses compression n with djw. Other second compressions do not seem to support level)
     add_compile_definitions(SECONDARY_FGK=1)
     if(XD3_ENABLE_LZMA)
@@ -73,13 +74,15 @@ if(XD3_ENABLE_SECONDARY_COMPRESSION)
         add_compile_definitions(SECONDARY_LZMA=1)
     endif()
 else()
-    add_compile_definitions(EXTERNAL_COMPRESSION=0)
+    add_compile_definitions(SECONDARY_DJW=0)
+    add_compile_definitions(SECONDARY_FGK=0)
+    add_compile_definitions(SECONDARY_LZMA=0)
 endif()
 
 if(XD3_BUILD_AS_EXE)
-    add_executable(xdelta3 "${XD3_SOURCE_DIR}/xdelta3.c")
+    add_executable(xdelta3 "${XD3_SOURCES}")
 else()
-    add_library(xdelta3 "${XD3_SOURCE_DIR}/xdelta3.c")
+    add_library(xdelta3 "${XD3_SOURCES}")
 endif()
 
 target_link_libraries(xdelta3 ${XD3_TARGET_LIBS})
