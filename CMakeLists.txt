@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0)
-project(xdelta3 VERSION 3.0.11)
+project(xdelta3 LANGUAGES C VERSION 3.0.11)
 
 include(CheckTypeSize)
 check_type_size(size_t XD3_SIZEOF_SIZE_T)
@@ -84,7 +84,8 @@ if(XD3_BUILD_AS_EXE)
 else()
     add_library(${PROJECT_NAME} "${XD3_SOURCES}")
     target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 
-target_link_libraries(xdelta3 ${XD3_TARGET_LIBS})
+target_link_libraries(${PROJECT_NAME} ${XD3_TARGET_LIBS})

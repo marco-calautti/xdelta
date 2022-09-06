@@ -2,7 +2,7 @@
 #define _XDELTA3_WRAPPER_H_
 
 #include <string>
-#include <map>
+#include <vector>
 
 
 /**
@@ -12,7 +12,7 @@
  * simply set the value corresponding to the key to the empty string.
  **/
 
-int xd3_main_exec(std::map<std::string,std::string> params);
+int xd3_main_exec(const std::vector<std::string>& params);
 std::string xd3_messages();
 
 #endif

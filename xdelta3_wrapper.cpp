@@ -1,44 +1,45 @@
 #include "xdelta3_wrapper.h"
 
-#include <vector>
+#include <stdlib.h>
+#include <string.h>
+
+extern "C"
+{
+    /**
+    * Default command line like interface. The first parameter must be a dummy param for the executable name (e.g. xdelta 3)
+    **/
+    int xd3_main_cmdline(int argc, char **argv);
+}
+
+extern void (*xprintf_message_func)(const char* msg);
 
 static std::string _messages;
 static void internal_printf(const char* msg){
     _messages.append(msg);
 }
-/**
- * Default command line like interface. The first parameter must be a dummy param for the executable name (e.g. xdelta 3)
- **/
-int xd3_main_cmdline(int argc, char **argv);
 
-extern void (*xprintf_message_func)(const char* msg);
 
 std::string xd3_messages()
 {
     return _messages;
 }
 
-int xd3_main_exec(std::map<std::string,std::string> params)
+int xd3_main_exec(const std::vector<std::string>& params)
 {
-    char** argv = new char*[params.size()*2];
+    char** argv = new char*[params.size()+2];
     argv[0] = new char[8]{'x','d','e','l','t','a','3','\0'};
+
     int count = 1;
-    for(auto entry: params)
+    for(auto& entry: params)
     {
-        size_t len = entry.first.length()+1;
+        size_t len = entry.length()+1;
         argv[count] = new char[len];
-        std::copy(entry.first.begin(),entry.first.end(),argv[count]);
-        argv[count][len]='\0';
+        std::copy(entry.begin(),entry.end(),argv[count]);
+        argv[count][len-1]='\0';
         count++;
-        if(!entry.second.empty())
-        {
-            len = entry.second.length()+1;
-            argv[count] = new char[len];
-            std::copy(entry.second.begin(),entry.second.end(),argv[count]);
-            argv[count][len]='\0';
-            count++;
-        }
     }
+
+    argv[count]=nullptr;
 
     xprintf_message_func = &internal_printf;
     _messages.clear();
