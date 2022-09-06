@@ -4,8 +4,6 @@ project(xdelta3 VERSION 3.0.11)
 include(CheckTypeSize)
 check_type_size(size_t XD3_SIZEOF_SIZE_T)
 
-include_directories(.)
-
 set(XD3_SOURCES xdelta3/xdelta3.c)
 
 set(XD3_TARGET_LIBS "")
@@ -85,6 +83,7 @@ if(XD3_BUILD_AS_EXE)
     add_executable(xdelta3 "${XD3_SOURCES}")
 else()
     add_library(xdelta3 "${XD3_SOURCES}")
+    target_include_directories(xdelta3 PUBLIC .)
 endif()
 
 target_link_libraries(xdelta3 ${XD3_TARGET_LIBS})
