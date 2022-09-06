@@ -83,7 +83,7 @@ if(XD3_BUILD_AS_EXE)
     add_executable(xdelta3 "${XD3_SOURCES}")
 else()
     add_library(xdelta3 "${XD3_SOURCES}")
-    target_include_directories(xdelta3 PUBLIC "${PROJECT_SOURCE_DIR}")
+    target_include_directories(xdelta3 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 target_link_libraries(xdelta3 ${XD3_TARGET_LIBS})
