@@ -13,5 +13,6 @@
  **/
 
 int xd3_main_exec(std::map<std::string,std::string> params);
+std::string xd3_messages();
 
 #endif
