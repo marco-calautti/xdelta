@@ -46,5 +46,10 @@ int xd3_main_exec(std::map<std::string,std::string> params)
     int ret = xd3_main_cmdline(count, argv);
 
     xprintf_message_func = nullptr;
+    for(int i=0;i<count;i++)
+    {
+        delete[] argv[i];
+    }
+    delete[] argv;
     return ret;
 }
