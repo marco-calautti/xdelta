@@ -20,5 +20,20 @@ The original GPL licensed Xdelta lives at http://github.com/jmacd/xdelta-gpl.
 See the [command-line usage](https://github.com/jmacd/xdelta/blob/wiki/CommandLineSyntax.md).  See [wiki directory](https://github.com/jmacd/xdelta/tree/wiki).
 
 
+# How to build
+- Clone repo
+- cd into repo folder
+- mkdir build
+- cd build
+- cmake -DCMAKE_BUILD_TYPE=Release ..
+- If on linux, run make
+- If on Windows, open the generated solution file with Visual Studio e build.
 
+The basic command cmake -DCMAKE_BUILD_TYPE=Release .. will build xdelta3 as a static library, with no secondary compression support and only the decoder code. So the bare minimum. Here is an example building with all features included:
+
+cmake -DXD3_ENABLE_SECONDARY_COMPRESSION=ON -DXD3_ENABLE_ENCODER=ON -DXD3_ENABLE_VCDIFF_TOOLS=ON -DXD3_ENABLE_LZMA=on -DCMAKE_BUILD_TYPE=Release ..
+
+You can additionally specify -DXD3_BUILD_AS_EXE=ON to build an executable instead of a static libray.
+
+Note: for lzma support, liblzma dev package must be installed in your system.
 
