@@ -30,13 +30,13 @@ struct _xd3_lzma_stream {
   lzma_filter filters[2];
 };
 
-static xd3_sec_stream* 
+xd3_sec_stream* 
 xd3_lzma_alloc (xd3_stream *stream)
 {
   return (xd3_sec_stream*) xd3_alloc (stream, sizeof (xd3_lzma_stream), 1);
 }
 
-static void
+void
 xd3_lzma_destroy (xd3_stream *stream, xd3_sec_stream *sec_stream)
 {
   xd3_lzma_stream *ls = (xd3_lzma_stream*) sec_stream;
@@ -44,7 +44,7 @@ xd3_lzma_destroy (xd3_stream *stream, xd3_sec_stream *sec_stream)
   xd3_free (stream, ls);
 }
 
-static int
+int
 xd3_lzma_init (xd3_stream *stream, xd3_lzma_stream *sec, int is_encode)
 {
   int ret;
@@ -53,8 +53,7 @@ xd3_lzma_init (xd3_stream *stream, xd3_lzma_stream *sec, int is_encode)
 
   if (is_encode)
     {
-      uint32_t preset = 
-	(stream->flags & XD3_COMPLEVEL_MASK) >> XD3_COMPLEVEL_SHIFT;
+      int preset = (stream->flags & XD3_COMPLEVEL_MASK) >> XD3_COMPLEVEL_SHIFT;
 
       if (lzma_lzma_preset(&sec->options, preset)) 
 	{
@@ -82,7 +81,7 @@ xd3_lzma_init (xd3_stream *stream, xd3_lzma_stream *sec, int is_encode)
   return 0;
 }
 
-static int xd3_decode_lzma (xd3_stream *stream, xd3_lzma_stream *sec,
+int xd3_decode_lzma (xd3_stream *stream, xd3_lzma_stream *sec,
 		     const uint8_t **input_pos,
 		     const uint8_t  *const input_end,
 		     uint8_t       **output_pos,
@@ -123,7 +122,7 @@ static int xd3_decode_lzma (xd3_stream *stream, xd3_lzma_stream *sec,
 
 #if XD3_ENCODER
 
-static int xd3_encode_lzma (xd3_stream *stream, 
+int xd3_encode_lzma (xd3_stream *stream, 
 		     xd3_lzma_stream *sec, 
 		     xd3_output   *input,
 		     xd3_output   *output,

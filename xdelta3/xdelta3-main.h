@@ -46,28 +46,13 @@
 
 /*********************************************************************/
 
-#include <limits.h>
-
-#ifndef XD3_POSIX
-#define XD3_POSIX 0
-#endif
-#ifndef XD3_STDIO
-#define XD3_STDIO 0
-#endif
-#ifndef XD3_WIN32
-#define XD3_WIN32 0
-#endif
-#ifndef NOT_MAIN
-#define NOT_MAIN 0
-#endif
-
 /* Combines xd3_strerror() and strerror() */
 const char* xd3_mainerror(int err_num);
 
 #include "xdelta3-internal.h"
 
 int
-xsnprintf_func (char *str, size_t n, const char *fmt, ...)
+xsnprintf_func (char *str, int n, const char *fmt, ...)
 {
   va_list a;
   int ret;
@@ -242,8 +227,9 @@ static const char *option_source_filename    = NULL;
 static int         option_level              = XD3_DEFAULT_LEVEL;
 static usize_t     option_iopt_size          = XD3_DEFAULT_IOPT_SIZE;
 static usize_t     option_winsize            = XD3_DEFAULT_WINSIZE;
-
-/* option_srcwinsz is restricted to [16kB, 2GB] when usize_t is 32 bits. */
+/* Note: option_srcwinsz is restricted from [16Kb, 4Gb], because
+ * addresses in the large hash checksum are 32 bits.  The flag is read
+ * as xoff_t, so that 4Gb != 0. */
 static xoff_t      option_srcwinsz           = XD3_DEFAULT_SRCWINSZ;
 static usize_t     option_sprevsz            = XD3_DEFAULT_SPREVSZ;
 
@@ -299,6 +285,10 @@ static void main_get_appheader (xd3_stream *stream, main_file *ifile,
 static int main_getblk_func (xd3_stream *stream,
 			     xd3_source *source,
 			     xoff_t      blkno);
+static void main_free (void *ptr);
+static void* main_malloc (size_t size);
+
+static int main_file_stat (main_file *xfile, xoff_t *size);
 static int main_file_seek (main_file *xfile, xoff_t pos);
 static int main_read_primary_input (main_file   *file,
 				    uint8_t     *buf,
@@ -317,7 +307,7 @@ static int xd3_merge_input_output (xd3_stream *stream,
  * comments there. */
 #include "xdelta3-blkcache.h"
 
-static void (*xprintf_message_func)(const char*msg) = NULL;
+void (*xprintf_message_func)(const char*msg) = NULL;
 
 void
 xprintf (const char *fmt, ...)
@@ -345,7 +335,7 @@ static int
 main_version (void)
 {
   /* $Format: "  XPR(NTR \"Xdelta version $Xdelta3Version$, Copyright (C) Joshua MacDonald\\n\");" $ */
-  XPR(NTR "Xdelta version 3.1.1, Copyright (C) Joshua MacDonald\n");
+  XPR(NTR "Xdelta version 3.0.12, Copyright (C) Joshua MacDonald\n");
   XPR(NTR "Xdelta comes with ABSOLUTELY NO WARRANTY.\n");
   XPR(NTR "Licensed under the Apache License, Version 2.0\n");
   XPR(NTR "See \"LICENSE\" for details.\n");
@@ -371,7 +361,6 @@ main_config (void)
   XPR(NTR "XD3_STDIO=%d\n", XD3_STDIO);
   XPR(NTR "XD3_WIN32=%d\n", XD3_WIN32);
   XPR(NTR "XD3_USE_LARGEFILE64=%d\n", XD3_USE_LARGEFILE64);
-  XPR(NTR "XD3_USE_LARGESIZET=%d\n", XD3_USE_LARGESIZET);
   XPR(NTR "XD3_DEFAULT_LEVEL=%d\n", XD3_DEFAULT_LEVEL);
   XPR(NTR "XD3_DEFAULT_IOPT_SIZE=%d\n", XD3_DEFAULT_IOPT_SIZE);
   XPR(NTR "XD3_DEFAULT_SPREVSZ=%d\n", XD3_DEFAULT_SPREVSZ);
@@ -382,7 +371,6 @@ main_config (void)
   XPR(NTR "sizeof(int)=%d\n", (int)sizeof(int));
   XPR(NTR "sizeof(long)=%d\n", (int)sizeof(long));
   XPR(NTR "sizeof(long long)=%d\n", (int)sizeof(long long));
-  XPR(NTR "sizeof(unsigned long long)=%d\n", (int)sizeof(unsigned long long));
   XPR(NTR "sizeof(size_t)=%d\n", (int)sizeof(size_t));
   XPR(NTR "sizeof(uint32_t)=%d\n", (int)sizeof(uint32_t));
   XPR(NTR "sizeof(uint64_t)=%d\n", (int)sizeof(uint64_t));
@@ -449,7 +437,7 @@ void* main_bufalloc (size_t size) {
 #endif
 }
 
-void*
+static void*
 main_malloc (size_t size)
 {
   void *r = main_malloc1 (size);
@@ -471,7 +459,7 @@ main_free1 (void *opaque, void *ptr)
   free (ptr);
 }
 
-void
+static void
 main_free (void *ptr)
 {
   if (ptr)
@@ -542,7 +530,7 @@ xd3_mainerror(int err_num) {
 #endif
 }
 
-long
+static long
 get_millisecs_now (void)
 {
 #ifndef _WIN32
@@ -665,18 +653,14 @@ main_strtoxoff (const char* s, xoff_t *xo, char which)
   XD3_ASSERT(s && *s != 0);
 
   {
-#if SIZEOF_XOFF_T == SIZEOF_UNSIGNED_LONG_LONG
-    unsigned long long xx = strtoull (s, &e, 0);
-    unsigned long long bad = ULLONG_MAX;
-#elif SIZEOF_XOFF_T <= SIZEOF_UNSIGNED_LONG
-    unsigned long xx = strtoul (s, &e, 0);
-    unsigned long long bad = ULONG_MAX;
+    /* Should check LONG_MIN, LONG_MAX, LLONG_MIN, LLONG_MAX? */
+#if SIZEOF_XOFF_T == 4
+    long xx = strtol (s, &e, 0);
 #else
-    /* Something wrong with SIZEOF_XOFF_T, SIZEOF_UNSIGNED_LONG, etc. */
-    #error Bad configure script
+    long long xx = strtoll (s, &e, 0);
 #endif
 
-    if (xx == bad)
+    if (xx < 0)
       {
 	XPR(NT "-%c: negative integer: %s\n", which, s);
 	return EXIT_FAILURE;
@@ -1083,7 +1067,7 @@ main_file_write (main_file *ofile, uint8_t *buf, usize_t size, const char *msg)
 {
   int ret = 0;
 
-  IF_DEBUG1(DP(RINT "[main] write %"W"u\n bytes", size));
+  IF_DEBUG1(DP(RINT "[main] write %u\n bytes", size));
   
 #if XD3_STDIO
   usize_t result;
@@ -1106,7 +1090,7 @@ main_file_write (main_file *ofile, uint8_t *buf, usize_t size, const char *msg)
     }
   else
     {
-      if (option_verbose > 5) { XPR(NT "write %s: %"W"u bytes\n",
+      if (option_verbose > 5) { XPR(NT "write %s: %u bytes\n",
 				    ofile->filename, size); }
       ofile->nwrite += size;
     }
@@ -1154,7 +1138,7 @@ main_write_output (xd3_stream* stream, main_file *ofile)
 {
   int ret;
 
-  IF_DEBUG1(DP(RINT "[main] write(%s) %"W"u\n bytes", ofile->filename, stream->avail_out));
+  IF_DEBUG1(DP(RINT "[main] write(%s) %u\n bytes", ofile->filename, stream->avail_out));
 
   if (option_no_output)
     {
@@ -1244,15 +1228,6 @@ main_set_secondary_flags (xd3_config *config)
 	}
     }
 
-  if (option_verbose)
-    {
-      XPR(NT "secondary compression: %s\n",
-	  (config->flags | XD3_SEC_LZMA) ? "lzma" :
-	  ((config->flags | XD3_SEC_FGK) ? "fgk" :
-	   ((config->flags | XD3_SEC_DJW) ? "djw" :
-	    "none")));
-    }
-
   return 0;
 }
 
@@ -1313,8 +1288,7 @@ main_print_window (xd3_stream* stream, main_file *xfile)
       addr_bytes = (usize_t)(stream->addr_sect.buf - addr_before);
       inst_bytes = (usize_t)(stream->inst_sect.buf - inst_before);
 
-      VC(UT "  %06"Q"u %03"W"u  %s %6"W"u", 
-	 stream->dec_winstart + size,
+      VC(UT "  %06"Q"u %03u  %s %6u", stream->dec_winstart + size,
 	 option_print_cpymode ? code : 0,
 	 xd3_rtype_to_string ((xd3_rtype) stream->dec_current1.type,
 			      option_print_cpymode),
@@ -1326,7 +1300,7 @@ main_print_window (xd3_stream* stream, main_file *xfile)
 	    {
 	      if (stream->dec_current1.addr >= stream->dec_cpylen)
 		{
-		  VC(UT " T@%-6"W"u",
+		  VC(UT " T@%-6u",
 		     stream->dec_current1.addr - stream->dec_cpylen)VE;
 		}
 	      else
@@ -1345,7 +1319,7 @@ main_print_window (xd3_stream* stream, main_file *xfile)
 
       if (stream->dec_current2.type != XD3_NOOP)
 	{
-	  VC(UT "  %s %6"W"u",
+	  VC(UT "  %s %6u",
 	     xd3_rtype_to_string ((xd3_rtype) stream->dec_current2.type,
 				  option_print_cpymode),
 	     stream->dec_current2.size)VE;
@@ -1354,7 +1328,7 @@ main_print_window (xd3_stream* stream, main_file *xfile)
 	    {
 	      if (stream->dec_current2.addr >= stream->dec_cpylen)
 		{
-		  VC(UT " T@%-6"W"u",
+		  VC(UT " T@%-6u",
 		     stream->dec_current2.addr - stream->dec_cpylen)VE;
 		}
 	      else
@@ -1374,7 +1348,7 @@ main_print_window (xd3_stream* stream, main_file *xfile)
 	  (stream->dec_current1.type >= XD3_CPY ||
 	   stream->dec_current2.type >= XD3_CPY))
 	{
-	  VC(UT "  %06"Q"u (inefficiency) %"W"u encoded as %"W"u bytes\n",
+	  VC(UT "  %06"Q"u (inefficiency) %u encoded as %u bytes\n",
 	     stream->dec_winstart + size_before,
 	     size - size_before,
 	     addr_bytes + inst_bytes)VE;
@@ -1442,7 +1416,7 @@ main_print_func (xd3_stream* stream, main_file *xfile)
   if (stream->dec_winstart == 0)
     {
       VC(UT "VCDIFF version:               0\n")VE;
-      VC(UT "VCDIFF header size:           %"W"u\n",
+      VC(UT "VCDIFF header size:           %d\n",
 	 stream->dec_hdrsize)VE;
       VC(UT "VCDIFF header indicator:      ")VE;
       if ((stream->dec_hdr_ind & VCD_SECONDARY) != 0)
@@ -1508,7 +1482,7 @@ main_print_func (xd3_stream* stream, main_file *xfile)
   if ((stream->dec_win_ind & VCD_ADLER32) != 0)
     {
       VC(UT "VCDIFF adler32 checksum:      %08X\n",
-	 stream->dec_adler32)VE;
+	 (usize_t)stream->dec_adler32)VE;
     }
 
   if (stream->dec_del_ind != 0)
@@ -1528,22 +1502,22 @@ main_print_func (xd3_stream* stream, main_file *xfile)
 
   if (SRCORTGT (stream->dec_win_ind))
     {
-      VC(UT "VCDIFF copy window length:    %"W"u\n",
-	 stream->dec_cpylen)VE;
+      VC(UT "VCDIFF copy window length:    %u\n",
+	 (usize_t)stream->dec_cpylen)VE;
       VC(UT "VCDIFF copy window offset:    %"Q"u\n",
 	 stream->dec_cpyoff)VE;
     }
 
-  VC(UT "VCDIFF delta encoding length: %"W"u\n",
+  VC(UT "VCDIFF delta encoding length: %u\n",
      (usize_t)stream->dec_enclen)VE;
-  VC(UT "VCDIFF target window length:  %"W"u\n",
+  VC(UT "VCDIFF target window length:  %u\n",
      (usize_t)stream->dec_tgtlen)VE;
 
-  VC(UT "VCDIFF data section length:   %"W"u\n",
+  VC(UT "VCDIFF data section length:   %u\n",
      (usize_t)stream->data_sect.size)VE;
-  VC(UT "VCDIFF inst section length:   %"W"u\n",
+  VC(UT "VCDIFF inst section length:   %u\n",
      (usize_t)stream->inst_sect.size)VE;
-  VC(UT "VCDIFF addr section length:   %"W"u\n",
+  VC(UT "VCDIFF addr section length:   %u\n",
      (usize_t)stream->addr_sect.size)VE;
 
   ret = 0;
@@ -1983,11 +1957,8 @@ main_merge_output (xd3_stream *stream, main_file *ofile)
 		  XD3_ASSERT (inst->addr >= window_start);
 		  addr = inst->addr - window_start;
 		}
-	      IF_DEBUG2 ({
-		  XPR(NTR "[merge copy] winpos %"W"u take %"W"u "
-		      "addr %"Q"u mode %u\n",
-		      window_pos, take, addr, inst->mode);
-		});
+	      IF_DEBUG2 (XPR(NTR "[merge copy] winpos %u take %u addr %"Q"u mode %u\n",
+			    window_pos, take, addr, inst->mode));
 	      if ((ret = xd3_found_match (recode_stream, window_pos, take,
 					  addr, inst->mode != 0)))
 		{
@@ -3060,7 +3031,7 @@ main_input (xd3_cmd     cmd,
 	{
 	  const char *s = option_smatch_config;
 	  char *e;
-	  long values[XD3_SOFTCFG_VARCNT];
+	  int values[XD3_SOFTCFG_VARCNT];
 	  int got;
 
 	  config.smatch_cfg = XD3_SMATCH_SOFT;
@@ -3317,7 +3288,7 @@ main_input (xd3_cmd     cmd,
 			stream.i_slots_used > stream.iopt_size)
 		      {
 			XPR(NT "warning: input position %"Q"u overflowed "
-			    "instruction buffer, needed %"W"u (vs. %"W"u), "
+			    "instruction buffer, needed %u (vs. %u), "
 			    "consider changing -I\n",
 			    stream.current_window * winsize,
 			    stream.i_slots_used, stream.iopt_size);
@@ -3442,10 +3413,10 @@ done:
   if (option_verbose > 1 && cmd == CMD_ENCODE)
     {
       XPR(NT "scanner configuration: %s\n", stream.smatcher.name);
-      XPR(NT "target hash table size: %"W"u\n", stream.small_hash.size);
+      XPR(NT "target hash table size: %u\n", stream.small_hash.size);
       if (sfile != NULL && sfile->filename != NULL)
 	{
-	  XPR(NT "source hash table size: %"W"u\n", stream.large_hash.size);
+	  XPR(NT "source hash table size: %u\n", stream.large_hash.size);
 	}
     }
 
