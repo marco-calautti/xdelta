@@ -317,7 +317,7 @@ static int xd3_merge_input_output (xd3_stream *stream,
  * comments there. */
 #include "xdelta3-blkcache.h"
 
-static void (*xprintf_message_func)(const char*msg) = NULL;
+void (*xprintf_message_func)(const char*msg) = NULL;
 
 void
 xprintf (const char *fmt, ...)
