@@ -47,12 +47,12 @@
  * buffer is used directly.
  */
 #ifndef XD3_DEFAULT_WINSIZE
-#define XD3_DEFAULT_WINSIZE (1U << 23)
+#define XD3_DEFAULT_WINSIZE (1ULL << 23)
 #endif
 
 /* Default total size of the source window used in xdelta3-main.h */
 #ifndef XD3_DEFAULT_SRCWINSZ
-#define XD3_DEFAULT_SRCWINSZ (1U << 26)
+#define XD3_DEFAULT_SRCWINSZ (1ULL << 26)
 #endif
 
 /* When Xdelta requests a memory allocation for certain buffers, it

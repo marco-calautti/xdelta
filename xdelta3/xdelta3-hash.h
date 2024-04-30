@@ -114,7 +114,7 @@ xd3_size_hashtable_bits (usize_t slots)
 
   for (i = 3; i <= bits; i += 1)
     {
-      if (slots < (1U << i))
+      if (slots < (1ULL << i))
 	{
 	  /* Note: this is the compaction=1 setting measured in
 	   * checksum_test */
@@ -134,7 +134,7 @@ xd3_size_hashtable (xd3_stream   *stream,
 {
   usize_t bits = xd3_size_hashtable_bits (slots);
 
-  cfg->size  = (1U << bits);
+  cfg->size  = (1ULL << bits);
   cfg->mask  = (cfg->size - 1);
   cfg->shift = (SIZEOF_USIZE_T * 8) - bits;
   cfg->look  = look;
