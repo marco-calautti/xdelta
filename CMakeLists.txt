@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.8)
 project(xdelta3 VERSION 3.1.0)
 
 include(CheckTypeSize)
